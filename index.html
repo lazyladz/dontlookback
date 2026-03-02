@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DON'T LOOK BACK</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;
+  font-family:'Share Tech Mono',monospace;color:#aaa;user-select:none;}
+
+#game{position:relative;width:100vw;height:100vh;overflow:hidden;}
+#cv{display:block;position:absolute;inset:0;width:100%;height:100%;}
+
+/* ── OVERLAYS ── */
+#vign{position:absolute;inset:0;pointer-events:none;z-index:5;}
+#scanl{position:absolute;inset:0;pointer-events:none;z-index:6;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);}
+
+/* ── HUD ── */
+#hud{position:absolute;inset:0;pointer-events:none;z-index:10;
+  display:flex;flex-direction:column;justify-content:space-between;}
+#hud-t{display:flex;justify-content:space-between;align-items:flex-start;padding:14px 16px;}
+#hud-b{display:flex;justify-content:space-between;align-items:flex-end;padding:14px 16px;}
+
+.pnl{background:rgba(0,0,0,.76);border:1px solid #181818;
+  padding:9px 14px;font-size:10px;letter-spacing:.1em;line-height:1.9;}
+.lb{color:#252525;font-size:8px;letter-spacing:.3em;text-transform:uppercase;}
+.vl{color:#585858;}
+.vl.g{color:#007733;}
+.vl.y{color:#886600;}
+.vl.r{color:#991a00;animation:blk .55s step-end infinite;}
+@keyframes blk{50%{opacity:.15}}
+
+#msg{background:rgba(0,0,0,.8);border:1px solid #181818;
+  padding:9px 14px;font-size:11px;color:#404040;letter-spacing:.08em;
+  line-height:1.65;max-width:300px;min-height:42px;}
+#msg.y{color:#886600;border-color:#2a1e00}
+#msg.r{color:#881a00;border-color:#280000}
+
+#mm{background:rgba(0,0,0,.8);border:1px solid #181818;padding:7px;}
+#mml{font-size:8px;color:#1e1e1e;letter-spacing:.3em;margin-bottom:4px;}
+#mmc{display:block;}
+
+.bars{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;}
+.br{display:flex;align-items:center;gap:6px;font-size:8px;color:#202020;letter-spacing:.1em;}
+.bt{width:68px;height:2px;background:#0a0a0a;}
+.bf{height:100%;transition:width .35s,background .4s;}
+
+/* crosshair */
+#xh{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:10px;height:10px;pointer-events:none;z-index:11;}
+#xh::before,#xh::after{content:'';position:absolute;background:rgba(200,200,200,.2);}
+#xh::before{width:1px;height:100%;left:50%;transform:translateX(-50%)}
+#xh::after{width:100%;height:1px;top:50%;transform:translateY(-50%)}
+
+/* door prompt */
+#dp{position:absolute;bottom:40%;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.85);border:1px solid #2a2a2a;
+  padding:5px 14px;font-size:10px;color:#484848;letter-spacing:.18em;
+  display:none;pointer-events:none;z-index:11;}
+
+/* ── FULL SCREENS ── */
+.fs{display:none;position:fixed;inset:0;background:#000;z-index:9999;
+  flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;}
+.fs h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(3rem,10vw,5.5rem);
+  letter-spacing:.18em;margin-bottom:14px;text-shadow:0 0 28px currentColor;line-height:1.1;}
+.fs p{font-size:12px;line-height:2.3;letter-spacing:.07em;margin-bottom:28px;}
+.fs button{background:none;font-family:'Share Tech Mono',monospace;font-size:11px;
+  padding:12px 32px;cursor:pointer;letter-spacing:.18em;text-transform:uppercase;
+  transition:all .25s;border:1px solid;}
+#sc-intro{display:flex;}
+#sc-intro h1{color:#8f1800}
+#sc-intro p{color:#303030}
+#sc-intro button{color:#6f1400;border-color:#2c0800}
+#sc-intro button:hover{background:#6f1400;color:#fff}
+#sc-death h1{color:#8f1800}#sc-death p{color:#280c0c}#sc-death p b{color:#7a1400}
+#sc-death button{color:#280c0c;border-color:#140000}
+#sc-death button:hover{color:#8f1800;border-color:#8f1800}
+#sc-win h1{color:#006622}#sc-win p{color:#041a0c}#sc-win p b{color:#006622}
+#sc-win button{color:#005c1e;border-color:#002e0e}
+#sc-win button:hover{background:#005c1e;color:#000}
+
+/* ── MOBILE PAD ── */
+#mpad{display:none;position:fixed;bottom:12px;right:12px;z-index:8000;
+  grid-template-columns:52px 52px 52px;grid-template-rows:52px 52px;gap:4px;}
+@media(pointer:coarse){#mpad{display:grid;}}
+.mb{background:rgba(0,0,0,.82);border:1px solid #1e1e1e;color:#2e2e2e;
+  font-size:18px;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;-webkit-tap-highlight-color:transparent;touch-action:none;cursor:pointer;}
+.mb:active{background:#0e0e0e;color:#666;}
+#mf{grid-column:2;grid-row:1}#ml{grid-column:1;grid-row:2}
+#mb2{grid-column:2;grid-row:2}#mr{grid-column:3;grid-row:2}
+#mu{grid-column:3;grid-row:1;font-size:10px;letter-spacing:0;color:#333;}
+</style>
+</head>
+<body>
+
+<!-- ── SCREENS ── -->
+<div class="fs" id="sc-intro">
+  <h1>DON'T<br>LOOK BACK</h1>
+  <p>
+    find the <b style="color:#006622">green door</b> and escape<br>
+    <span style="font-size:10px;color:#282828">
+      WASD · move &nbsp;|&nbsp; mouse · look &nbsp;|&nbsp; E · use door<br>
+      arrows also work · it wakes after ~50 steps
+    </span>
+  </p>
+  <button id="btn-start">[ ENTER ]</button>
+  <p style="font-size:9px;color:#141414;margin-top:14px">headphones · lights off</p>
+</div>
+
+<div class="fs" id="sc-death">
+  <h1>IT FOUND YOU</h1>
+  <p>steps: <b id="d-s">0</b> &nbsp;·&nbsp; doors: <b id="d-d">0</b></p>
+  <button onclick="location.reload()">try again</button>
+</div>
+
+<div class="fs" id="sc-win">
+  <h1>YOU ESCAPED</h1>
+  <p>steps: <b id="w-s">0</b> &nbsp;·&nbsp; doors: <b id="w-d">0</b><br>
+  <span style="font-size:10px;color:#031208">it's still in there.</span></p>
+  <button onclick="location.reload()">play again</button>
+</div>
+
+<!-- ── GAME ── -->
+<div id="game">
+  <canvas id="cv"></canvas>
+  <div id="vign"></div>
+  <div id="scanl"></div>
+
+  <div id="hud">
+    <div id="hud-t">
+      <div class="pnl">
+        <div class="lb">location</div><div class="vl" id="h-loc">—</div>
+        <div class="lb" style="margin-top:5px">steps</div><div class="vl" id="h-st">0</div>
+        <div class="lb" style="margin-top:5px">doors</div><div class="vl" id="h-dr">0</div>
+      </div>
+      <div class="pnl">
+        <div class="bars">
+          <div class="br">SANITY<div class="bt"><div class="bf" id="b-san" style="width:100%;background:#007733"></div></div></div>
+          <div class="br">THREAT<div class="bt"><div class="bf" id="b-thr" style="width:0%;background:#881600"></div></div></div>
+        </div>
+        <div class="lb">it is</div>
+        <div class="vl g" id="h-dist">sleeping</div>
+      </div>
+    </div>
+    <div id="hud-b">
+      <div id="msg">find the green door. press E to open doors.</div>
+      <div id="mm">
+        <div id="mml">⬡ MAP</div>
+        <canvas id="mmc"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="xh"></div>
+  <div id="dp">[ E ] OPEN</div>
+</div>
+
+<!-- ── MOBILE ── -->
+<div id="mpad">
+  <button class="mb" id="mf">↑</button>
+  <button class="mb" id="ml">↺</button>
+  <button class="mb" id="mb2">↓</button>
+  <button class="mb" id="mr">↻</button>
+  <button class="mb" id="mu">USE</button>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════
+// AUDIO
+// ════════════════════════════════════════════════════
+let _ac=null;
+const AC=()=>{if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;};
+function tone(type,f,dur,vol,f2){
+  try{const c=AC(),o=c.createOscillator(),g=c.createGain();
+    o.type=type;o.frequency.value=f;
+    if(f2)o.frequency.exponentialRampToValueAtTime(f2,c.currentTime+dur);
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);
+    o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+dur+.02);}catch(e){}
+}
+function staticNoise(dur,vol){
+  try{const c=AC(),n=c.sampleRate*dur,b=c.createBuffer(1,n,c.sampleRate),d=b.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*.75;
+    const s=c.createBufferSource(),g=c.createGain();
+    g.gain.setValueAtTime(vol,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+dur);
+    s.buffer=b;s.connect(g);g.connect(c.destination);s.start();}catch(e){}
+}
+function heartbeat(fast){
+  try{const c=AC(),gap=fast?.14:.27;
+    for(const[t,v]of[[0,.22],[gap,.12]]){
+      const o=c.createOscillator(),g=c.createGain();
+      o.type='sine';o.frequency.value=48;
+      g.gain.setValueAtTime(0,c.currentTime+t);
+      g.gain.linearRampToValueAtTime(v,c.currentTime+t+.05);
+      g.gain.exponentialRampToValueAtTime(.001,c.currentTime+t+.2);
+      o.connect(g);g.connect(c.destination);o.start(c.currentTime+t);o.stop(c.currentTime+t+.25);}}catch(e){}
+}
+function scream(){
+  try{const c=AC(),o=c.createOscillator(),g=c.createGain(),w=c.createWaveShaper();
+    const cv=new Float32Array(256);for(let i=0;i<256;i++){const x=i*2/256-1;cv[i]=Math.sign(x)*Math.pow(Math.abs(x),.18);}
+    w.curve=cv;o.type='sawtooth';
+    o.frequency.setValueAtTime(180,c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1800,c.currentTime+.3);
+    o.frequency.exponentialRampToValueAtTime(240,c.currentTime+.85);
+    g.gain.setValueAtTime(.28,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.95);
+    o.connect(w);w.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+1);}catch(e){}
+}
+function doorSound(){tone('sine',220,.1,.08);setTimeout(()=>tone('sine',180,.12,.05),100);}
+function stepSound(){tone('sine',50+Math.random()*18,.08,.035);}
+
+// ════════════════════════════════════════════════════
+// MAP
+// 0=floor 1=wall 2=door(closed) 3=exit
+// Player [1.5,13.5] facing north · Hunter [13.5,13.5] · Exit [13,1]
+// Three distinct north routes separated by doors
+// ════════════════════════════════════════════════════
+const MAP=[
+//  0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
+  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], // 0
+  [ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 0, 1], // 1  ← EXIT [13,1]
+  [ 1, 0, 1, 1, 0, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1], // 2
+  [ 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 3
+  [ 1, 0, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 1, 1, 0, 1], // 4
+  [ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], // 5  wide open
+  [ 1, 1, 2, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 2, 1, 1], // 6
+  [ 1, 0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 1], // 7
+  [ 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 0, 1, 0, 1], // 8
+  [ 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1], // 9
+  [ 1, 0, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1], //10
+  [ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], //11 wide open
+  [ 1, 0, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 0, 1], //12  four doors
+  [ 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1], //13  start row
+  [ 1, 0, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1], //14
+  [ 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], //15
+];
+const MW=16,MH=16;
+const openDoors=new Set();
+
+function rawAt(x,y){
+  const ix=x|0,iy=y|0;
+  if(ix<0||ix>=MW||iy<0||iy>=MH)return 1;
+  return MAP[iy][ix];
+}
+function tileAt(x,y){
+  const t=rawAt(x,y);
+  return(t===2&&openDoors.has(`${x|0},${y|0}`))?0:t;
+}
+function blocked(x,y){const t=tileAt(x,y);return t===1||t===2;}
+function isExit(x,y){return tileAt(x,y)===3;}
+
+// ════════════════════════════════════════════════════
+// PROCEDURAL TEXTURES  64×64 canvas-based
+// ════════════════════════════════════════════════════
+const TS=64; // texture size
+const TEX={};
+
+function makeTex(name,fn){
+  const c=document.createElement('canvas');c.width=c.height=TS;
+  const x=c.getContext('2d');fn(x);
+  TEX[name]=x.getImageData(0,0,TS,TS).data;
+}
+
+// Stone brick wall
+makeTex('wall',x=>{
+  // base noise
+  for(let j=0;j<TS;j++)for(let i=0;i<TS;i++){
+    const n=16+Math.random()*14;
+    x.fillStyle=`rgb(${n|0},${n|0},${(n+3)|0})`;
+    x.fillRect(i,j,1,1);
+  }
+  // brick mortar horizontals every 12px
+  x.fillStyle='rgba(4,4,6,0.75)';
+  for(let j=0;j<TS;j+=12)x.fillRect(0,j,TS,1);
+  // verticals alternating offset
+  for(let row=0;row<TS/12;row++){
+    const off=(row%2===0)?0:TS/2|0;
+    for(let i=off;i<TS;i+=TS/2|0)x.fillRect(i,row*12,1,12);
+  }
+  // top/bottom edge darkening
+  const g=x.createLinearGradient(0,0,0,TS);
+  g.addColorStop(0,'rgba(0,0,0,.45)');g.addColorStop(.18,'rgba(0,0,0,0)');
+  g.addColorStop(.82,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.45)');
+  x.fillStyle=g;x.fillRect(0,0,TS,TS);
+  // side darkening
+  const g2=x.createLinearGradient(0,0,TS,0);
+  g2.addColorStop(0,'rgba(0,0,0,.3)');g2.addColorStop(.12,'rgba(0,0,0,0)');
+  g2.addColorStop(.88,'rgba(0,0,0,0)');g2.addColorStop(1,'rgba(0,0,0,.3)');
+  x.fillStyle=g2;x.fillRect(0,0,TS,TS);
+  // subtle cracks
+  x.strokeStyle='rgba(0,0,0,.4)';x.lineWidth=.7;
+  for(let c2=0;c2<5;c2++){
+    x.beginPath();let cx=Math.random()*TS,cy=Math.random()*TS;x.moveTo(cx,cy);
+    for(let s=0;s<3;s++){cx+=(Math.random()-.5)*14;cy+=(Math.random()-.5)*14;x.lineTo(cx,cy);}
+    x.stroke();
+  }
+});
+
+// Wooden door
+makeTex('door',x=>{
+  for(let j=0;j<TS;j++)for(let i=0;i<TS;i++){
+    const n=22+Math.random()*10;
+    x.fillStyle=`rgb(${n|0},${(n*.55)|0},${(n*.28)|0})`;
+    x.fillRect(i,j,1,1);
+  }
+  x.fillStyle='rgba(0,0,0,.35)';
+  for(let i=0;i<TS;i+=TS/4|0)x.fillRect(i,0,1,TS);
+  x.fillStyle='rgba(0,0,0,.4)';
+  x.fillRect(0,TS*.25|0,TS,2);x.fillRect(0,TS*.75|0,TS,2);
+  x.strokeStyle='rgba(80,45,15,.4)';x.lineWidth=1;
+  x.strokeRect(5,5,TS-10,(TS*.2)|0);
+  x.strokeRect(5,(TS*.28)|0,TS-10,(TS*.42)|0);
+  x.strokeRect(5,(TS*.76)|0,TS-10,(TS*.19)|0);
+  x.fillStyle='rgba(35,35,35,.9)';
+  for(const[bx,by]of[[6,6],[TS-7,6],[6,TS-7],[TS-7,TS-7]]){
+    x.beginPath();x.arc(bx,by,2,0,Math.PI*2);x.fill();}
+});
+
+// Green exit door — glowing mossy stone
+makeTex('exit',x=>{
+  for(let j=0;j<TS;j++)for(let i=0;i<TS;i++){
+    const n=7+Math.random()*7;
+    x.fillStyle=`rgb(${n|0},${(n+18)|0},${n|0})`;
+    x.fillRect(i,j,1,1);
+  }
+  for(let p=0;p<14;p++){
+    const px=Math.random()*TS,py=Math.random()*TS,pr=3+Math.random()*9;
+    const g=x.createRadialGradient(px,py,0,px,py,pr);
+    g.addColorStop(0,'rgba(0,140,40,.55)');g.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=g;x.fillRect(px-pr,py-pr,pr*2,pr*2);
+  }
+  x.strokeStyle='rgba(0,200,70,.3)';x.lineWidth=1;
+  for(let l=0;l<5;l++){
+    x.beginPath();x.moveTo(Math.random()*TS,Math.random()*TS);
+    x.lineTo(Math.random()*TS,Math.random()*TS);x.stroke();
+  }
+  const g=x.createLinearGradient(0,0,TS,0);
+  g.addColorStop(0,'rgba(0,80,15,.5)');g.addColorStop(.5,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,80,15,.5)');
+  x.fillStyle=g;x.fillRect(0,0,TS,TS);
+});
+
+// Ceiling — cracked plaster
+makeTex('ceil',x=>{
+  for(let j=0;j<TS;j++)for(let i=0;i<TS;i++){
+    const n=9+Math.random()*8;
+    x.fillStyle=`rgb(${n|0},${n|0},${(n+2)|0})`;
+    x.fillRect(i,j,1,1);
+  }
+  x.strokeStyle='rgba(0,0,0,.38)';x.lineWidth=.6;
+  for(let c2=0;c2<9;c2++){
+    x.beginPath();let cx=Math.random()*TS,cy=Math.random()*TS;x.moveTo(cx,cy);
+    for(let s=0;s<4;s++){cx+=(Math.random()-.5)*11;cy+=(Math.random()-.5)*11;x.lineTo(cx,cy);}
+    x.stroke();
+  }
+  for(let s=0;s<3;s++){
+    const sx=Math.random()*TS,sy=Math.random()*TS;
+    const g=x.createRadialGradient(sx,sy,0,sx,sy,10+Math.random()*7);
+    g.addColorStop(0,'rgba(0,0,0,.28)');g.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=g;x.fillRect(sx-18,sy-18,36,36);
+  }
+});
+
+// Floor — worn stone flags
+makeTex('floor',x=>{
+  for(let j=0;j<TS;j++)for(let i=0;i<TS;i++){
+    const n=11+Math.random()*10;
+    x.fillStyle=`rgb(${n|0},${n|0},${(n+2)|0})`;
+    x.fillRect(i,j,1,1);
+  }
+  x.fillStyle='rgba(0,0,0,.42)';
+  for(let j=0;j<TS;j+=TS/4|0)x.fillRect(0,j,TS,1);
+  for(let row=0;row<4;row++){
+    const off=(row%2===0)?0:TS/4|0;
+    for(let i=off;i<TS;i+=TS/2|0)x.fillRect(i,row*(TS/4|0),1,TS/4|0);
+  }
+  for(const[cx,cy]of[[0,0],[TS,0],[0,TS],[TS,TS]]){
+    const g=x.createRadialGradient(cx,cy,0,cx,cy,TS*.38);
+    g.addColorStop(0,'rgba(0,0,0,.32)');g.addColorStop(1,'rgba(0,0,0,0)');
+    x.fillStyle=g;x.fillRect(cx-TS*.4,cy-TS*.4,TS*.8,TS*.8);
+  }
+});
+
+function sampleTex(name,u,v){
+  const d=TEX[name];if(!d)return[16,16,18];
+  const tx=(((u%1)+1)%1*TS)|0,ty=(((v%1)+1)%1*TS)|0;
+  const i=(ty*TS+tx)<<2;
+  return[d[i],d[i+1],d[i+2]];
+}
+
+// ════════════════════════════════════════════════════
+// CANVAS SETUP
+// ════════════════════════════════════════════════════
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+let CW=0,CH=0,buf=null,pix=null,zbuf=null;
+
+function resize(){
+  // Render at half res, scale up for performance + retro look
+  CW=(window.innerWidth/2)|0;
+  CH=(window.innerHeight/2)|0;
+  cv.width=CW;cv.height=CH;
+  cv.style.width='100%';cv.style.height='100%';
+  cv.style.imageRendering='pixelated';
+  buf=ctx.createImageData(CW,CH);
+  pix=buf.data;
+  zbuf=new Float32Array(CW);
+}
+
+function px(x,y,r,g,b){
+  if(x<0||x>=CW||y<0||y>=CH)return;
+  const i=(y*CW+x)<<2;
+  pix[i]=r;pix[i+1]=g;pix[i+2]=b;pix[i+3]=255;
+}
+
+// ════════════════════════════════════════════════════
+// PLAYER  (velocity-based smooth movement)
+// ════════════════════════════════════════════════════
+const P={
+  x:1.5,y:13.5,
+  ang:-Math.PI/2, // north
+  vx:0,vy:0,
+};
+const MOVE_SPEED=3.8; // units/s
+const ROT_SPEED=2.1;  // rad/s
+const ACCEL=16;
+const FRIC=12;
+const FOV=Math.PI/2.4;
+
+// ════════════════════════════════════════════════════
+// HUNTER
+// ════════════════════════════════════════════════════
+const HT={x:13.5,y:13.5,active:false,spd:1.6};
+let wakeAt=12; // steps to wake
+
+function d2(a,b){return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);}
+
+function hunterStep(dt){
+  if(!HT.active)return;
+  const dx=P.x-HT.x,dy=P.y-HT.y,d=Math.sqrt(dx*dx+dy*dy);
+  if(d<.01)return;
+  const s=HT.spd*dt,nx=dx/d*s,ny=dy/d*s,m=.22;
+  for(const[cx,cy]of[
+    [HT.x+nx,HT.y+ny],[HT.x+nx,HT.y],[HT.x,HT.y+ny],
+    [HT.x+nx*.6+ny*.6,HT.y+ny*.6-nx*.6],[HT.x+nx*.6-ny*.6,HT.y+ny*.6+nx*.6]
+  ]){
+    if(!blocked(cx,cy)&&!blocked(cx+m,cy)&&!blocked(cx-m,cy)&&!blocked(cx,cy+m)&&!blocked(cx,cy-m)){
+      HT.x=cx;HT.y=cy;return;
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════
+let flickT=0;
+
+function render(dt){
+  if(!buf)return;
+  flickT+=dt;
+  const pd=d2(P,HT);
+  const threat=HT.active?Math.max(0,1-pd/14):0;
+  // subtle wall flicker near hunter
+  const flick=HT.active&&pd<4?(Math.sin(flickT*16)*.5+.5)*(4-pd)/4*.22:0;
+
+  // ── Floor & Ceiling (per-scanline texture) ──
+  const halfH=CH>>1;
+  for(let y=0;y<CH;y++){
+    const isFloor=y>halfH;
+    const p=isFloor?y-halfH:halfH-y;
+    const rowDist=p===0?1e10:(CH*.5)/p;
+    const cos=Math.cos(P.ang),sin=Math.sin(P.ang);
+    const fxStep=rowDist*(Math.cos(P.ang-FOV*.5)-Math.cos(P.ang+FOV*.5))/CW;
+    const fyStep=rowDist*(Math.sin(P.ang-FOV*.5)-Math.sin(P.ang+FOV*.5))/CW;
+    let fx=P.x+rowDist*Math.cos(P.ang-FOV*.5);
+    let fy=P.y+rowDist*Math.sin(P.ang-FOV*.5);
+    const distRatio=(isFloor?(y-halfH)/(halfH):((halfH-y)/halfH));
+    const bright=Math.max(0,.5-distRatio*.48)*(1-flick*.5);
+    for(let x=0;x<CW;x++){
+      const[tr,tg,tb]=sampleTex(isFloor?'floor':'ceil',fx,fy);
+      const r2=Math.min(255,(tr*bright+threat*16*bright)|0);
+      const g2=Math.min(255,(tg*bright)|0);
+      const b2=Math.min(255,(tb*bright)|0);
+      px(x,y,r2,g2,b2);
+      fx+=fxStep;fy+=fyStep;
+    }
+  }
+
+  // ── Walls (DDA raycasting with texture) ──
+  for(let col=0;col<CW;col++){
+    const ray=P.ang-FOV*.5+col*(FOV/CW);
+    const rc=Math.cos(ray),rs=Math.sin(ray);
+    let mx=P.x|0,my=P.y|0;
+    const ddx=Math.abs(1/(rc||1e-10)),ddy=Math.abs(1/(rs||1e-10));
+    let sdx=rc<0?(P.x-mx)*ddx:(mx+1-P.x)*ddx;
+    let sdy=rs<0?(P.y-my)*ddy:(my+1-P.y)*ddy;
+    const sx=rc<0?-1:1,sy=rs<0?-1:1;
+    let side=0,hitTile=1;
+
+    for(let j=0;j<80;j++){
+      if(sdx<sdy){sdx+=ddx;mx+=sx;side=0;}
+      else{sdy+=ddy;my+=sy;side=1;}
+      const t=tileAt(mx,my);
+      if(t===1||t===2||t===3){hitTile=t;break;}
+    }
+
+    const perp=side===0?sdx-ddx:sdy-ddy;
+    zbuf[col]=perp;
+
+    const lh=Math.min(CH*3,(CH/Math.max(.05,perp))|0);
+    const top=Math.max(0,(CH-lh)>>1);
+    const bot=Math.min(CH,(CH+lh)>>1);
+
+    // texture U coordinate
+    let wallU=side===0?(P.y+perp*rs)%1:(P.x+perp*rc)%1;
+    if((side===0&&rc>0)||(side===1&&rs<0))wallU=1-wallU;
+
+    const tname=hitTile===3?'exit':hitTile===2?'door':'wall';
+    const sideDim=side===1?.72:1;
+    const bright=Math.max(0,Math.min(1,1-perp/15))*sideDim*(1-flick*.65);
+
+    for(let y=top;y<bot;y++){
+      const wallV=(y-(CH-lh)*.5)/lh;
+      const[tr,tg,tb]=sampleTex(tname,wallU,wallV);
+      const r2=Math.min(255,(tr*bright+threat*38*bright)|0);
+      const g2=Math.min(255,(tg*bright)|0);
+      const b2=Math.min(255,(tb*bright)|0);
+      px(col,y,r2,g2,b2);
+    }
+  }
+
+  // ── Hunter sprite ──
+  {
+    const dx=HT.x-P.x,dy=HT.y-P.y;
+    const c2=Math.cos(P.ang),s2=Math.sin(P.ang);
+    const r2=Math.cos(P.ang+Math.PI/2),rb=Math.sin(P.ang+Math.PI/2);
+    const det=c2*rb-s2*r2;
+    if(Math.abs(det)>.001){
+      const tx=(rb*dx-r2*dy)/det,tz=(c2*dy-s2*dx)/det;
+      if(tz>.3){
+        const sx=(CW/2*(1+tx/tz))|0;
+        const sh=Math.abs((CH/tz)|0);
+        const sw=sh;
+        const sdxS=sx-(sw>>1);
+        const pd2=d2(P,HT);
+        if(pd2<14&&sdxS+sw>0&&sdxS<CW){
+          const alpha=Math.min(1,(14-pd2)/11);
+          for(let sc=0;sc<sw;sc++){
+            const wx=sdxS+sc;if(wx<0||wx>=CW)continue;
+            const col2=wx|0;if(zbuf[col2]<tz)continue;
+            const u=sc/sw;
+            const inB=u>.3&&u<.7,inH=u>.37&&u<.63;
+            for(let y=(CH-sh)>>1;y<(CH+sh)>>1;y++){
+              if(y<0||y>=CH)continue;
+              const v=(y-((CH-sh)>>1))/sh;
+              let dr=0,dg=0,db=0,da=0;
+              if(v<.16&&inH){dr=4;dg=2;db=5;da=alpha;}
+              else if(v>=.2&&v<.88&&inB){dr=3;dg=1;db=4;da=alpha;}
+              if(pd2<8&&v>.04&&v<.14&&(u>.38&&u<.46||u>.54&&u<.62)){
+                da=Math.min(1,(8-pd2)/6)*alpha;
+                dr=150+Math.random()*80|0;dg=0;db=0;
+              }
+              if(da>0){
+                const i=(y*CW+wx)<<2;
+                pix[i]=Math.min(255,(pix[i]*(1-da)+dr*da)|0);
+                pix[i+1]=Math.min(255,(pix[i+1]*(1-da)+dg*da)|0);
+                pix[i+2]=Math.min(255,(pix[i+2]*(1-da)+db*da)|0);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  ctx.putImageData(buf,0,0);
+}
+
+// ════════════════════════════════════════════════════
+// MINIMAP
+// ════════════════════════════════════════════════════
+const mmc=document.getElementById('mmc');
+const mmx=mmc.getContext('2d');
+const CS=7;
+mmc.width=MW*CS;mmc.height=MH*CS;
+const seen=new Set();
+
+function drawMap(){
+  mmx.fillStyle='#020204';mmx.fillRect(0,0,mmc.width,mmc.height);
+  for(let y=0;y<MH;y++)for(let x=0;x<MW;x++){
+    const k=`${x},${y}`;if(!seen.has(k))continue;
+    const t=MAP[y][x],op=openDoors.has(k);
+    mmx.fillStyle=t===1?'#141420':t===3?'#003318':t===2&&!op?'#382000':'#0c0c16';
+    mmx.fillRect(x*CS,y*CS,CS,CS);
+  }
+  // hunter (only near)
+  const pd=d2(P,HT);
+  if(HT.active&&pd<8){
+    mmx.fillStyle=`rgba(145,18,0,${Math.min(1,(8-pd)/6)})`;
+    mmx.fillRect(HT.x*CS-2,HT.y*CS-2,5,5);
+  }
+  // player + dir
+  mmx.fillStyle='#907000';
+  mmx.fillRect(P.x*CS-2,P.y*CS-2,5,5);
+  mmx.strokeStyle='#907000';mmx.lineWidth=1;
+  mmx.beginPath();
+  mmx.moveTo(P.x*CS,P.y*CS);
+  mmx.lineTo((P.x+Math.cos(P.ang)*4.5)*CS,(P.y+Math.sin(P.ang)*4.5)*CS);
+  mmx.stroke();
+}
+
+function reveal(){
+  for(let dy=-4;dy<=4;dy++)for(let dx=-4;dx<=4;dx++){
+    const sx=(P.x+dx)|0,sy=(P.y+dy)|0;
+    if(sx>=0&&sx<MW&&sy>=0&&sy<MH)seen.add(`${sx},${sy}`);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// DOOR
+// ════════════════════════════════════════════════════
+let doorsOpened=0;
+function doorAhead(){
+  for(let d=.6;d<=1.7;d+=.15){
+    const tx=(P.x+Math.cos(P.ang)*d)|0,ty=(P.y+Math.sin(P.ang)*d)|0;
+    const k=`${tx},${ty}`;
+    if(rawAt(tx,ty)===2&&!openDoors.has(k))return k;
+  }return null;
+}
+function useAction(){
+  const k=doorAhead();
+  if(k){
+    openDoors.add(k);doorsOpened++;
+    document.getElementById('h-dr').textContent=doorsOpened;
+    doorSound();
+  } else {tone('square',75,.1,.05);}
+}
+
+// ════════════════════════════════════════════════════
+// INPUT  — arrow keys fully intercepted
+// ════════════════════════════════════════════════════
+const K={};
+const BLOCK=['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' ','Tab'];
+window.addEventListener('keydown',e=>{
+  if(BLOCK.includes(e.key))e.preventDefault();
+  K[e.key]=true;
+  if(started&&!over&&(e.key==='e'||e.key==='E'||e.key==='f'||e.key==='F'))useAction();
+},{passive:false});
+window.addEventListener('keyup',e=>{K[e.key]=false;});
+
+let mouseOn=false;
+cv.addEventListener('click',()=>cv.requestPointerLock?.());
+document.addEventListener('pointerlockchange',()=>mouseOn=document.pointerLockElement===cv);
+document.addEventListener('mousemove',e=>{if(mouseOn&&started&&!over)P.ang+=e.movementX*.0022;});
+
+// Mobile
+const MK={f:0,b:0,l:0,r:0};
+function bindMob(id,k,usefn){
+  const el=document.getElementById(id);
+  const on=()=>{MK[k]=1;if(usefn)usefn();};
+  const off=()=>MK[k]=0;
+  el.addEventListener('touchstart',e=>{e.preventDefault();on();},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();off();},{passive:false});
+  el.addEventListener('mousedown',on);el.addEventListener('mouseup',off);
+}
+bindMob('mf','f');bindMob('ml','l');bindMob('mb2','b');bindMob('mr','r');
+document.getElementById('mu').addEventListener('click',useAction);
+document.getElementById('mu').addEventListener('touchstart',e=>{e.preventDefault();useAction();},{passive:false});
+
+// ════════════════════════════════════════════════════
+// PLAYER MOVEMENT  (smooth velocity/acceleration)
+// ════════════════════════════════════════════════════
+let stepAcc=0,totalSteps=0;
+
+function movePlayer(dt){
+  const fwd=(K['w']||K['W']||K['ArrowUp']||MK.f)?1:0;
+  const bk=(K['s']||K['S']||K['ArrowDown']||MK.b)?1:0;
+  const lt=(K['a']||K['A']||K['ArrowLeft']||MK.l)?1:0;
+  const rt=(K['d']||K['D']||K['ArrowRight']||MK.r)?1:0;
+
+  // Smooth rotation
+  P.ang+=(rt-lt)*ROT_SPEED*dt;
+
+  // Velocity smoothing
+  const tv=(fwd-bk)*MOVE_SPEED;
+  if(Math.abs(tv)>.01){
+    const tc=Math.cos(P.ang)*tv,ts=Math.sin(P.ang)*tv;
+    P.vx+=(tc-P.vx)*Math.min(1,ACCEL*dt);
+    P.vy+=(ts-P.vy)*Math.min(1,ACCEL*dt);
+  } else {
+    P.vx*=Math.max(0,1-FRIC*dt);
+    P.vy*=Math.max(0,1-FRIC*dt);
+  }
+
+  // Collision slide
+  const m=.28;
+  const nx=P.x+P.vx*dt;
+  if(!blocked(nx,P.y)&&!blocked(nx,P.y+m)&&!blocked(nx,P.y-m))P.x=nx;else P.vx*=-.1;
+  const ny=P.y+P.vy*dt;
+  if(!blocked(P.x,ny)&&!blocked(P.x+m,ny)&&!blocked(P.x-m,ny))P.y=ny;else P.vy*=-.1;
+
+  // Step counting by distance
+  const spd=Math.sqrt(P.vx*P.vx+P.vy*P.vy);
+  if(spd>.4){
+    stepAcc+=spd*dt;
+    if(stepAcc>.5){
+      stepAcc=0;totalSteps++;
+      document.getElementById('h-st').textContent=totalSteps;
+      stepSound();
+      if(totalSteps>=wakeAt&&!HT.active){
+        HT.active=true;
+        tone('sawtooth',36,3,.04);
+        setMsg('it woke up.','r',90);
+      }
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════
+// HUD UPDATE
+// ════════════════════════════════════════════════════
+const MSGS_DATA=[
+  {d:999,m:["find the green door","press E to open brown doors","the exit is to the north","explore carefully"]},
+  {d:7,  m:["something stirred","it knows you're here","keep moving","don't stop"]},
+  {d:4,  m:["it's close","move faster","almost on you","keep going"]},
+  {d:2,  m:["RIGHT BEHIND YOU","RUN","MOVE NOW","IT'S HERE"]},
+];
+let msgCd=0,sanity=100,shakePow=0;
+function setMsg(t,c,cd=50){const m=document.getElementById('msg');m.textContent=t;m.className=c||'';msgCd=cd;}
+
+const ROOMS={'1,13':'ENTRANCE','3,13':'SOUTH PASSAGE','7,13':'SOUTH HALL','11,13':'FAR SOUTH',
+  '1,11':'WEST CORRIDOR','5,11':'ALCOVE','7,9':'JUNCTION','7,7':'CROSSING',
+  '5,5':'INNER HALL','1,3':'WEST WING','11,3':'UPPER EAST','13,1':'EXIT CHAMBER','1,1':'DEAD END'};
+
+function updateHUD(dt,pd){
+  // bars
+  const thr=HT.active?Math.max(0,(1-pd/14)*100):0;
+  document.getElementById('b-thr').style.width=thr+'%';
+  if(HT.active&&pd<5)sanity=Math.max(0,sanity-(5-pd)*.018);
+  document.getElementById('b-san').style.width=sanity+'%';
+  const sb=document.getElementById('b-san');
+  sb.style.background=sanity<25?'#881600':sanity<55?'#885500':'#007733';
+
+  // dist
+  const de=document.getElementById('h-dist');
+  if(!HT.active){de.textContent='sleeping';de.className='vl g';}
+  else if(pd<2){de.textContent='RIGHT THERE';de.className='vl r';}
+  else if(pd<3.5){de.textContent='VERY CLOSE';de.className='vl r';}
+  else if(pd<5.5){de.textContent='CLOSE';de.className='vl y';}
+  else if(pd<9){de.textContent='NEARBY';de.className='vl';}
+  else{de.textContent='DISTANT';de.className='vl';}
+
+  // message cycling
+  if(--msgCd<=0){
+    msgCd=48+Math.random()*28|0;
+    let bk=MSGS_DATA[0];
+    for(const m of MSGS_DATA)if(HT.active&&pd<=m.d)bk=m;
+    const t=bk.m[Math.random()*bk.m.length|0];
+    const c=pd<2?'r':pd<5.5?'y':'';
+    setMsg(t,c,msgCd);
+  }
+
+  // vignette
+  const vi=HT.active&&pd<8?(8-pd)/8*.52:0;
+  document.getElementById('vign').style.background=vi>0
+    ?`radial-gradient(ellipse at center,transparent 34%,rgba(110,0,0,${vi.toFixed(2)}) 100%)`
+    :'none';
+
+  // room label
+  const rx=P.x|0,ry=P.y|0;
+  document.getElementById('h-loc').textContent=ROOMS[`${rx},${ry}`]||`AREA ${rx}·${ry}`;
+
+  // door hint
+  document.getElementById('dp').style.display=doorAhead()?'block':'none';
+
+  // shake
+  if(HT.active&&pd<2.5)shakePow=Math.min(10,(2.5-pd)*5);
+  else shakePow=Math.max(0,shakePow-25*dt);
+  if(shakePow>.4){
+    document.getElementById('game').style.transform=
+      `translate(${(Math.random()-.5)*shakePow}px,${(Math.random()-.5)*shakePow}px)`;
+  } else document.getElementById('game').style.transform='';
+}
+
+// ════════════════════════════════════════════════════
+// AMBIENT AUDIO
+// ════════════════════════════════════════════════════
+let ambT=0;
+function updateAudio(dt,pd){
+  if((ambT-=dt)>0)return;
+  ambT=1.8+Math.random()*2;
+  if(!HT.active)return;
+  if(pd<3){heartbeat(pd<1.8);tone('sawtooth',100,1.2,.028,75);}
+  else if(pd<7){tone('sawtooth',38+Math.random()*14,2,.016);}
+  else{tone('sawtooth',36+Math.random()*10,2,.008);}
+  if(pd<2&&Math.random()<.28)staticNoise(.1,.06);
+}
+
+// ════════════════════════════════════════════════════
+// GAME LOOP
+// ════════════════════════════════════════════════════
+let started=false,over=false,lastT=0;
+function loop(ts){
+  if(!started){requestAnimationFrame(loop);return;}
+  const dt=Math.min(.05,(ts-lastT)/1000);lastT=ts;
+  if(!over){
+    movePlayer(dt);
+    hunterStep(dt);
+    reveal();
+    const pd=d2(P,HT);
+    updateHUD(dt,pd);
+    updateAudio(dt,pd);
+    render(dt);
+    drawMap();
+    if(HT.active&&pd<.7){die();return;}
+    if(isExit(P.x,P.y)){win();return;}
+  }
+  requestAnimationFrame(loop);
+}
+
+// ════════════════════════════════════════════════════
+// END
+// ════════════════════════════════════════════════════
+function die(){
+  over=true;scream();
+  document.getElementById('vign').style.background='radial-gradient(ellipse at center,transparent 20%,rgba(120,0,0,.85) 100%)';
+  shakePow=20;
+  setTimeout(()=>{
+    document.getElementById('d-s').textContent=totalSteps;
+    document.getElementById('d-d').textContent=doorsOpened;
+    document.getElementById('sc-death').style.display='flex';
+    document.title='IT FOUND YOU';
+  },1000);
+}
+function win(){
+  over=true;
+  tone('sine',440,.18,.1);setTimeout(()=>tone('sine',554,.18,.08),190);
+  setTimeout(()=>{
+    document.getElementById('w-s').textContent=totalSteps;
+    document.getElementById('w-d').textContent=doorsOpened;
+    document.getElementById('sc-win').style.display='flex';
+    document.title='you escaped';
+  },500);
+}
+
+// ════════════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════════════
+document.getElementById('btn-start').onclick=()=>{
+  AC();
+  document.getElementById('sc-intro').style.display='none';
+  resize();reveal();
+  tone('sawtooth',38,5,.035);
+  started=true;lastT=performance.now();
+  requestAnimationFrame(loop);
+};
+window.addEventListener('resize',resize);
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
