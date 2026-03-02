@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DON'T LOOK BACK</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{
+  width:100%;height:100%;background:#000;
+  overflow:hidden;font-family:'Share Tech Mono',monospace;
+  color:#aaa;user-select:none;
+}
+#container{
+  position:relative;width:100%;height:100vh;
+  display:flex;flex-direction:column;
+}
+#canvas{display:block;width:100%;flex:1;image-rendering:pixelated}
+
+/* HUD */
+#hud{
+  position:absolute;inset:0;pointer-events:none;
+  display:flex;flex-direction:column;justify-content:space-between;
+}
+#hud-top{
+  display:flex;justify-content:space-between;align-items:flex-start;
+  padding:14px 18px;
+}
+.hud-panel{
+  background:rgba(0,0,0,0.7);border:1px solid #1a1a1a;
+  padding:8px 14px;font-size:11px;letter-spacing:0.15em;
+  line-height:1.9;
+}
+.hud-panel .lbl{color:#333;font-size:9px;letter-spacing:0.3em;text-transform:uppercase}
+.hud-panel .val{color:#888}
+.hud-panel .val.danger{color:#cc2200;animation:dng 0.6s step-end infinite}
+.hud-panel .val.warn{color:#cc7700}
+@keyframes dng{0%,100%{opacity:1}50%{opacity:0.3}}
+
+#hud-bottom{
+  display:flex;justify-content:space-between;align-items:flex-end;
+  padding:14px 18px;
+}
+#message-box{
+  background:rgba(0,0,0,0.85);border:1px solid #1a1a1a;
+  padding:10px 16px;font-size:12px;color:#666;
+  letter-spacing:0.1em;max-width:380px;line-height:1.7;
+  min-height:48px;transition:color 0.3s;
+}
+#message-box.red{color:#cc2200;border-color:#440000}
+#message-box.amber{color:#cc7700;border-color:#442200}
+
+#minimap-wrap{
+  background:rgba(0,0,0,0.85);border:1px solid #1a1a1a;padding:8px;
+}
+#minimap-title{font-size:9px;color:#333;letter-spacing:0.3em;margin-bottom:6px;text-transform:uppercase}
+#minimap-canvas{display:block}
+
+/* bars */
+#bars{display:flex;flex-direction:column;gap:6px}
+.bar-row{display:flex;align-items:center;gap:8px;font-size:9px;color:#333;letter-spacing:0.2em}
+.bar-track{width:80px;height:3px;background:#111}
+.bar-fill{height:100%;transition:width 0.3s,background 0.3s}
+
+/* crosshair */
+#crosshair{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:16px;height:16px;pointer-events:none;opacity:0.4;
+}
+#crosshair::before,#crosshair::after{
+  content:'';position:absolute;background:#666;
+}
+#crosshair::before{width:1px;height:100%;left:50%;transform:translateX(-50%)}
+#crosshair::after{width:100%;height:1px;top:50%;transform:translateY(-50%)}
+
+/* overlays */
+#flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:900;transition:opacity 0.04s}
+#blackout{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:901;transition:opacity 0.06s}
+#blood-overlay{
+  position:fixed;inset:0;pointer-events:none;z-index:200;opacity:0;
+  background:radial-gradient(ellipse at center,transparent 40%,rgba(160,0,0,0) 100%);
+  transition:opacity 0.5s,background 0.5s;
+}
+#static-overlay{
+  position:fixed;inset:0;pointer-events:none;z-index:300;opacity:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  transition:opacity 0.1s;
+}
+
+/* screens */
+.fullscreen{
+  display:none;position:fixed;inset:0;background:#000;z-index:9000;
+  align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:20px;
+}
+.fullscreen h1{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:clamp(3rem,10vw,6rem);
+  letter-spacing:0.2em;margin-bottom:16px;
+  text-shadow:0 0 40px currentColor;
+}
+.fullscreen p{font-size:13px;line-height:2.2;margin-bottom:32px;letter-spacing:0.1em}
+.fullscreen button{
+  background:none;font-family:'Share Tech Mono',monospace;
+  font-size:12px;padding:12px 32px;cursor:pointer;
+  letter-spacing:0.2em;text-transform:uppercase;transition:all 0.3s;
+  border:1px solid currentColor;
+}
+
+#intro-screen{display:flex}
+#intro-screen h1{color:#cc2200}
+#intro-screen p{color:#444}
+#intro-screen button{color:#cc2200;border-color:#440000}
+#intro-screen button:hover{background:#cc2200;color:#000}
+
+#death-screen h1{color:#cc2200}
+#death-screen p{color:#441010}
+#death-screen p span{color:#cc2200}
+#death-screen button{color:#441010;border-color:#220000}
+#death-screen button:hover{color:#cc2200;border-color:#cc2200}
+
+#win-screen h1{color:#00aa44}
+#win-screen p{color:#0a3320}
+#win-screen p span{color:#00aa44}
+#win-screen button{color:#00aa44;border-color:#003318}
+#win-screen button:hover{background:#00aa44;color:#000}
+
+/* mobile controls */
+#mobile-pad{
+  display:none;
+  position:fixed;bottom:100px;left:50%;transform:translateX(-50%);
+  z-index:800;
+  display:grid;
+  grid-template-columns:56px 56px 56px;
+  grid-template-rows:56px 56px;
+  gap:4px;
+}
+@media(pointer:coarse){#mobile-pad{display:grid}}
+.mpad-btn{
+  background:rgba(0,0,0,0.7);border:1px solid #222;
+  color:#444;font-size:22px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:6px;-webkit-tap-highlight-color:transparent;
+  touch-action:none;
+}
+.mpad-btn:active{background:#111;color:#888}
+#mb-fwd{grid-column:2;grid-row:1}
+#mb-lt{grid-column:1;grid-row:2}
+#mb-bk{grid-column:2;grid-row:2}
+#mb-rt{grid-column:3;grid-row:2}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+<div id="blackout"></div>
+<div id="blood-overlay"></div>
+<div id="static-overlay"></div>
+
+<!-- INTRO -->
+<div class="fullscreen" id="intro-screen">
+  <h1>DON'T<br>LOOK BACK</h1>
+  <p>
+    WASD to move &nbsp;|&nbsp; mouse or A/D to look<br>
+    find the green door before it finds you<br><br>
+    <span style="color:#220000">it moves every time you move</span>
+  </p>
+  <button onclick="startGame()">[ ENTER ]</button>
+  <p style="font-size:10px;margin-top:16px;color:#1a1a1a">headphones recommended &nbsp;·&nbsp; lights off</p>
+</div>
+
+<!-- DEATH -->
+<div class="fullscreen" id="death-screen">
+  <h1>IT FOUND YOU</h1>
+  <p>steps taken: <span id="d-steps">0</span><br>rooms seen: <span id="d-rooms">0</span></p>
+  <button onclick="location.reload()">try again</button>
+</div>
+
+<!-- WIN -->
+<div class="fullscreen" id="win-screen">
+  <h1>YOU ESCAPED</h1>
+  <p>steps: <span id="w-steps">0</span> &nbsp;|&nbsp; rooms: <span id="w-rooms">0</span><br><span style="font-size:11px;color:#052a14">it's still in there</span></p>
+  <button onclick="location.reload()">play again</button>
+</div>
+
+<!-- GAME -->
+<div id="container">
+  <canvas id="canvas"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div id="hud-top">
+      <div class="hud-panel">
+        <div class="lbl">status</div>
+        <div class="val" id="hud-room">—</div>
+        <div class="lbl" style="margin-top:4px">steps</div>
+        <div class="val" id="hud-steps">0</div>
+      </div>
+      <div class="hud-panel">
+        <div id="bars">
+          <div class="bar-row">
+            SANITY
+            <div class="bar-track"><div class="bar-fill" id="sanity-fill" style="width:100%;background:#00aa44"></div></div>
+          </div>
+          <div class="bar-row">
+            PROXIMITY
+            <div class="bar-track"><div class="bar-fill" id="prox-fill" style="width:0%;background:#cc2200"></div></div>
+          </div>
+        </div>
+        <div style="margin-top:8px">
+          <div class="lbl">it is</div>
+          <div class="val" id="hud-dist">far</div>
+        </div>
+      </div>
+    </div>
+    <div id="hud-bottom">
+      <div id="message-box">wake up. find the green door.</div>
+      <div id="minimap-wrap">
+        <div id="minimap-title">⬡ map</div>
+        <canvas id="minimap-canvas" width="120" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div id="crosshair"></div>
+</div>
+
+<!-- MOBILE CONTROLS -->
+<div id="mobile-pad">
+  <button class="mpad-btn" id="mb-fwd">↑</button>
+  <button class="mpad-btn" id="mb-lt">↺</button>
+  <button class="mpad-btn" id="mb-bk">↓</button>
+  <button class="mpad-btn" id="mb-rt">↻</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// AUDIO
+// ═══════════════════════════════════════════════
+let AC=null;
+function ac(){if(!AC)AC=new(window.AudioContext||window.webkitAudioContext)();return AC;}
+function snd_step(){
+  try{
+    const c=ac(),o=c.createOscillator(),g=c.createGain();
+    o.type='sine';o.frequency.value=60+Math.random()*30;
+    g.gain.setValueAtTime(0.07,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.1);
+    o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.12);
+  }catch(e){}
+}
+function snd_wall(){
+  try{
+    const c=ac(),o=c.createOscillator(),g=c.createGain();
+    o.type='square';o.frequency.value=100;
+    g.gain.setValueAtTime(0.06,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.07);
+    o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+0.1);
+  }catch(e){}
+}
+function snd_static(dur=0.3,vol=0.12){
+  try{
+    const c=ac();
+    const b=c.createBuffer(1,c.sampleRate*dur,c.sampleRate);
+    const d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.8;
+    const s=c.createBufferSource(),g=c.createGain();
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+    s.buffer=b;s.connect(g);g.connect(c.destination);s.start();
+  }catch(e){}
+}
+function snd_drone(f=45,dur=3,vol=0.04){
+  try{
+    const c=ac(),o=c.createOscillator(),g=c.createGain();
+    o.type='sawtooth';o.frequency.value=f;
+    g.gain.setValueAtTime(vol,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+dur);
+    o.connect(g);g.connect(c.destination);o.start();o.stop(c.currentTime+dur);
+  }catch(e){}
+}
+function snd_scream(){
+  try{
+    const c=ac(),o=c.createOscillator(),g=c.createGain();
+    const w=c.createWaveShaper();
+    const cv=new Float32Array(256);
+    for(let i=0;i<256;i++){const x=i*2/256-1;cv[i]=Math.sign(x)*Math.pow(Math.abs(x),0.2);}
+    w.curve=cv;
+    o.type='sawtooth';
+    o.frequency.setValueAtTime(180,c.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1600,c.currentTime+0.35);
+    o.frequency.exponentialRampToValueAtTime(250,c.currentTime+0.9);
+    g.gain.setValueAtTime(0.3,c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+1);
+    o.connect(w);w.connect(g);g.connect(c.destination);
+    o.start();o.stop(c.currentTime+1.1);
+  }catch(e){}
+}
+function snd_heartbeat(fast=false){
+  try{
+    const c=ac();
+    const beat=(t,vol)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.type='sine';o.frequency.value=52;
+      g.gain.setValueAtTime(0,t);
+      g.gain.linearRampToValueAtTime(vol,t+0.05);
+      g.gain.exponentialRampToValueAtTime(0.001,t+0.2);
+      o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+0.25);
+    };
+    const n=c.currentTime,gap=fast?0.16:0.28;
+    beat(n,0.22);beat(n+gap,0.13);
+  }catch(e){}
+}
+function snd_breath(){
+  try{
+    const c=ac();
+    const o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();
+    f.type='bandpass';f.frequency.value=380;f.Q.value=0.6;
+    o.type='sawtooth';o.frequency.value=110;
+    g.gain.setValueAtTime(0,c.currentTime);
+    g.gain.linearRampToValueAtTime(0.06,c.currentTime+0.5);
+    g.gain.linearRampToValueAtTime(0,c.currentTime+1.2);
+    o.connect(f);f.connect(g);g.connect(c.destination);
+    o.start();o.stop(c.currentTime+1.3);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════
+// FX
+// ═══════════════════════════════════════════════
+function fx_flash(ms=80){
+  const f=document.getElementById('flash');
+  f.style.opacity='1';setTimeout(()=>f.style.opacity='0',ms);
+}
+function fx_black(ms=160){
+  const b=document.getElementById('blackout');
+  b.style.opacity='1';setTimeout(()=>b.style.opacity='0',ms);
+}
+function fx_static(ms=200){
+  const s=document.getElementById('static-overlay');
+  s.style.opacity='0.18';setTimeout(()=>s.style.opacity='0',ms);
+}
+function fx_shake(amount=6,dur=400){
+  const c=document.getElementById('canvas');
+  const t=Date.now();
+  const iv=setInterval(()=>{
+    if(Date.now()-t>dur){c.style.transform='';clearInterval(iv);return;}
+    c.style.transform=`translate(${(Math.random()-.5)*amount}px,${(Math.random()-.5)*amount}px)`;
+  },30);
+}
+function setBlood(amt){
+  const b=document.getElementById('blood-overlay');
+  b.style.opacity=amt>0?'1':'0';
+  b.style.background=`radial-gradient(ellipse at center,transparent 35%,rgba(160,0,0,${amt}) 100%)`;
+}
+
+// ═══════════════════════════════════════════════
+// MAP  (1=wall, 0=floor, 2=door-locked, 3=exit-door, 9=hunter-start)
+// ═══════════════════════════════════════════════
+const MAP=[
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,1,0,0,0,0,0,0,1,3,0,0,1],  // row1: exit at [12,1]
+  [1,0,1,0,1,0,1,1,1,1,0,1,1,1,0,1],
+  [1,0,1,0,0,0,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,1,1,1,1,0,1,1,1,1,1,1,0,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,1,0,1],
+  [1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+  [1,0,0,1,0,0,0,0,0,1,0,1,0,0,0,1],
+  [1,0,1,1,1,1,1,1,0,1,0,1,0,1,1,1],
+  [1,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+  [1,1,1,0,1,1,0,1,1,1,0,1,1,1,0,1],
+  [1,0,0,0,1,0,0,0,0,1,0,0,0,0,0,1],
+  [1,0,1,1,1,0,1,1,0,1,1,1,1,0,1,1],
+  [1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1],
+  [1,1,1,1,1,0,1,1,1,0,1,1,1,1,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+const MAP_W=MAP[0].length, MAP_H=MAP.length;
+
+function isWall(x,y){
+  const mx=Math.floor(x),my=Math.floor(y);
+  if(mx<0||mx>=MAP_W||my<0||my>=MAP_H)return true;
+  return MAP[my][mx]===1||MAP[my][mx]===2;
+}
+function isExit(x,y){return MAP[Math.floor(y)][Math.floor(x)]===3;}
+
+// ═══════════════════════════════════════════════
+// PLAYER
+// ═══════════════════════════════════════════════
+const player={
+  x:1.5,y:13.5,        // start pos
+  angle:0,             // facing right
+  speed:0.07,
+  rotSpeed:0.055,
+  fov:Math.PI/2.8,
+};
+
+// ═══════════════════════════════════════════════
+// HUNTER
+// ═══════════════════════════════════════════════
+const hunter={x:14.5,y:1.5,moveTimer:0};
+
+function dist2(a,b){
+  return Math.sqrt((a.x-b.x)**2+(a.y-b.y)**2);
+}
+
+function moveHunter(){
+  // Simple greedy: move toward player, avoid walls
+  const dx=player.x-hunter.x, dy=player.y-hunter.y;
+  const d=Math.sqrt(dx*dx+dy*dy);
+  if(d<0.01)return;
+  const nx=dx/d*0.12, ny=dy/d*0.12;
+  const candidates=[
+    [hunter.x+nx, hunter.y+ny],
+    [hunter.x+nx, hunter.y],
+    [hunter.x,    hunter.y+ny],
+    [hunter.x+nx*0.5+ny*0.5, hunter.y+ny*0.5-nx*0.5],
+    [hunter.x+nx*0.5-ny*0.5, hunter.y+ny*0.5+nx*0.5],
+  ];
+  for(const[cx,cy]of candidates){
+    if(!isWall(cx,cy)&&!isWall(cx+0.2,cy)&&!isWall(cx-0.2,cy)&&!isWall(cx,cy+0.2)&&!isWall(cx,cy-0.2)){
+      hunter.x=cx;hunter.y=cy;
+      return;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// RAYCASTER
+// ═══════════════════════════════════════════════
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+let W=0,H=0;
+
+function resize(){
+  const container=document.getElementById('container');
+  W=canvas.width=container.clientWidth;
+  H=canvas.height=container.clientHeight;
+}
+
+// Wall colors per distance — dark stone palette
+function wallColor(dist,side,isExit){
+  const brightness=Math.max(0,Math.min(1,1-dist/14));
+  if(isExit){
+    const g=Math.floor(brightness*80+20);
+    const r=side===1?Math.floor(g*0.3):0;
+    return`rgb(${r},${g},${Math.floor(g*0.3)})`;
+  }
+  // Base gray stone
+  let r=side===1?28:20,g=r,b=r+4;
+  r=Math.floor(r*brightness+r*0.15);
+  g=Math.floor(g*brightness+g*0.1);
+  b=Math.floor(b*brightness+b*0.2);
+  // proximity tinge — red bleed near hunter
+  const pd=dist2(player,hunter);
+  if(pd<5){
+    const bleed=(1-pd/5)*0.4;
+    r=Math.min(255,r+Math.floor(80*bleed*brightness));
+  }
+  return`rgb(${r},${g},${b})`;
+}
+
+// Flicker intensity
+let flickerAmt=0;
+let hunterVisible=false;
+
+function castRays(){
+  // Sky / ceiling
+  const pd=dist2(player,hunter);
+  const ceilBrightness=Math.max(0,pd<6?(pd/6)*0.08:0.08);
+  ctx.fillStyle=`rgb(${Math.floor(ceilBrightness*255*0.3)},${Math.floor(ceilBrightness*255*0.2)},${Math.floor(ceilBrightness*255*0.2)})`;
+  ctx.fillRect(0,0,W,H/2);
+  // Floor
+  ctx.fillStyle=`rgb(${Math.floor(ceilBrightness*255*0.2)},${Math.floor(ceilBrightness*255*0.15)},${Math.floor(ceilBrightness*255*0.15)})`;
+  ctx.fillRect(0,H/2,W,H/2);
+
+  const numRays=Math.floor(W/2);
+  const rayStep=player.fov/numRays;
+
+  // Check if hunter is in view
+  hunterVisible=false;
+
+  for(let i=0;i<numRays;i++){
+    const rayAngle=player.angle-player.fov/2+i*rayStep;
+    const cos=Math.cos(rayAngle), sin=Math.sin(rayAngle);
+
+    // DDA algorithm
+    let mapX=Math.floor(player.x), mapY=Math.floor(player.y);
+    const deltaDistX=Math.abs(1/cos), deltaDistY=Math.abs(1/sin);
+    let stepX,stepY,sideDistX,sideDistY;
+
+    if(cos<0){stepX=-1;sideDistX=(player.x-mapX)*deltaDistX;}
+    else{stepX=1;sideDistX=(mapX+1-player.x)*deltaDistX;}
+    if(sin<0){stepY=-1;sideDistY=(player.y-mapY)*deltaDistY;}
+    else{stepY=1;sideDistY=(mapY+1-player.y)*deltaDistY;}
+
+    let side=0,hit=false,exitHit=false;
+    for(let j=0;j<64&&!hit;j++){
+      if(sideDistX<sideDistY){sideDistX+=deltaDistX;mapX+=stepX;side=0;}
+      else{sideDistY+=deltaDistY;mapY+=stepY;side=1;}
+      const cell=MAP[mapY]?.[mapX];
+      if(cell===1||cell===2){hit=true;}
+      if(cell===3){hit=true;exitHit=true;}
+    }
+
+    const perpDist=side===0?(sideDistX-deltaDistX):(sideDistY-deltaDistY);
+    const lineH=Math.min(H,Math.floor(H/Math.max(0.1,perpDist)));
+    const drawStart=Math.floor((H-lineH)/2);
+
+    // Flicker
+    const flick=flickerAmt>0&&Math.random()<flickerAmt?0.3+Math.random()*0.4:1;
+
+    // Draw wall slice (2px wide for performance)
+    const col=wallColor(perpDist,side,exitHit);
+    ctx.fillStyle=col;
+    ctx.globalAlpha=flick;
+    ctx.fillRect(i*2,drawStart,2,lineH);
+    ctx.globalAlpha=1;
+  }
+
+  // Draw hunter as a sprite if in view
+  drawHunter();
+}
+
+function drawHunter(){
+  // Transform hunter relative to player
+  const dx=hunter.x-player.x, dy=hunter.y-player.y;
+  const invDet=1/(Math.cos(player.angle)*Math.sin(player.angle+Math.PI/2)-Math.sin(player.angle)*Math.cos(player.angle+Math.PI/2));
+  const transformX=invDet*(Math.sin(player.angle+Math.PI/2)*dx-Math.cos(player.angle+Math.PI/2)*dy);
+  const transformY=invDet*(-Math.sin(player.angle)*dx+Math.cos(player.angle)*dy);
+
+  if(transformY<=0)return; // behind player
+
+  const spriteScreenX=Math.floor((W/2)*(1+transformX/transformY));
+  const spriteH=Math.abs(Math.floor(H/transformY));
+  if(spriteH<=0)return;
+
+  const drawStartY=Math.floor(-spriteH/2+H/2);
+  const spriteW=spriteH;
+  const drawStartX=Math.floor(spriteScreenX-spriteW/2);
+
+  if(drawStartX+spriteW<0||drawStartX>W)return;
+
+  // Only draw if not too far
+  const d=dist2(player,hunter);
+  if(d>12)return;
+
+  hunterVisible=true;
+  const alpha=Math.min(1,Math.max(0,(12-d)/10));
+
+  // Draw as dark silhouette with red eyes
+  ctx.save();
+  ctx.globalAlpha=alpha*0.85;
+
+  // Body
+  const bw=Math.floor(spriteW*0.4), bh=Math.floor(spriteH*0.7);
+  const bx=drawStartX+Math.floor(spriteW/2-bw/2);
+  const by=drawStartY+Math.floor(spriteH*0.25);
+  ctx.fillStyle='#0a0008';
+  ctx.fillRect(bx,by,bw,bh);
+
+  // Head
+  const hw=Math.floor(spriteW*0.28), hh=hw;
+  const hx=drawStartX+Math.floor(spriteW/2-hw/2);
+  const hy=drawStartY+Math.floor(spriteH*0.1);
+  ctx.fillStyle='#0a0008';
+  ctx.fillRect(hx,hy,hw,hh);
+
+  // Red eyes
+  if(d<8){
+    const eyeSize=Math.max(2,Math.floor(hw*0.18));
+    const eyeY=hy+Math.floor(hh*0.35);
+    const eyeAlpha=Math.min(1,(8-d)/6);
+    ctx.globalAlpha=alpha*eyeAlpha;
+    ctx.fillStyle=`rgb(${Math.floor(200+Math.random()*55)},0,0)`;
+    ctx.fillRect(hx+Math.floor(hw*0.2),eyeY,eyeSize,eyeSize);
+    ctx.fillRect(hx+Math.floor(hw*0.6),eyeY,eyeSize,eyeSize);
+
+    // Eye glow
+    ctx.globalAlpha=alpha*eyeAlpha*0.3;
+    ctx.fillStyle='#ff0000';
+    ctx.fillRect(hx+Math.floor(hw*0.15),eyeY-eyeSize,eyeSize*3,eyeSize*3);
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════
+// MINIMAP
+// ═══════════════════════════════════════════════
+const mmCanvas=document.getElementById('minimap-canvas');
+const mmCtx=mmCanvas.getContext('2d');
+const MM_CELL=7;
+mmCanvas.width=MAP_W*MM_CELL;
+mmCanvas.height=MAP_H*MM_CELL;
+
+const explored=new Set();
+
+function drawMinimap(){
+  mmCtx.fillStyle='#050508';
+  mmCtx.fillRect(0,0,mmCanvas.width,mmCanvas.height);
+
+  const pd=dist2(player,hunter);
+
+  for(let y=0;y<MAP_H;y++){
+    for(let x=0;x<MAP_W;x++){
+      const k=`${x},${y}`;
+      if(!explored.has(k))continue;
+      const cell=MAP[y][x];
+      if(cell===1)mmCtx.fillStyle='#1a1a20';
+      else if(cell===3)mmCtx.fillStyle='#003310';
+      else mmCtx.fillStyle='#0d0d12';
+      mmCtx.fillRect(x*MM_CELL,y*MM_CELL,MM_CELL,MM_CELL);
+    }
+  }
+  // Hunter (show when close)
+  if(pd<6){
+    mmCtx.fillStyle=`rgba(180,0,0,${Math.min(1,(6-pd)/4)})`;
+    mmCtx.fillRect(hunter.x*MM_CELL-2,hunter.y*MM_CELL-2,5,5);
+  }
+  // Player
+  mmCtx.fillStyle='#cc7700';
+  mmCtx.fillRect(player.x*MM_CELL-2,player.y*MM_CELL-2,5,5);
+  // Direction arrow
+  mmCtx.strokeStyle='#cc7700';
+  mmCtx.lineWidth=1;
+  mmCtx.beginPath();
+  mmCtx.moveTo(player.x*MM_CELL,player.y*MM_CELL);
+  mmCtx.lineTo(player.x*MM_CELL+Math.cos(player.angle)*6,player.y*MM_CELL+Math.sin(player.angle)*6);
+  mmCtx.stroke();
+}
+
+function updateExplored(){
+  // Mark cells in rough FOV as explored
+  const r=5;
+  for(let dy=-r;dy<=r;dy++){
+    for(let dx=-r;dx<=r;dx++){
+      const mx=Math.floor(player.x+dx),my=Math.floor(player.y+dy);
+      if(mx>=0&&mx<MAP_W&&my>=0&&my<MAP_H){
+        // Simple LOS check
+        explored.add(`${mx},${my}`);
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// HUD MESSAGES
+// ═══════════════════════════════════════════════
+const MESSAGES=[
+  {d:8,msgs:["something is in here with you","don't stop moving","find the green door","keep moving"]},
+  {d:5,msgs:["it's getting closer","i can hear it","move faster","don't look back","it found your trail"]},
+  {d:3,msgs:["RIGHT BEHIND YOU","MOVE NOW","IT'S HERE","RUN"]},
+  {d:1.5,msgs:["TOO LATE","IT HAS YOU","YOU STOPPED MOVING"]},
+];
+let msgTimer=0;
+function updateMessage(pd){
+  msgTimer--;
+  if(msgTimer>0)return;
+  msgTimer=40+Math.floor(Math.random()*30);
+  const mb=document.getElementById('message-box');
+  let bucket=MESSAGES[0];
+  for(const m of MESSAGES){if(pd<=m.d)bucket=m;}
+  const msg=bucket.msgs[Math.floor(Math.random()*bucket.msgs.length)];
+  mb.textContent=msg;
+  if(pd<=3){mb.className='red';}
+  else if(pd<=5){mb.className='amber';}
+  else{mb.className='';}
+}
+
+// ═══════════════════════════════════════════════
+// INPUT
+// ═══════════════════════════════════════════════
+const keys={};
+document.addEventListener('keydown',e=>{keys[e.key]=true;});
+document.addEventListener('keyup',e=>{keys[e.key]=false;});
+
+// Mouse look
+let mouseActive=false;
+document.getElementById('canvas').addEventListener('click',()=>{
+  canvas.requestPointerLock&&canvas.requestPointerLock();
+});
+document.addEventListener('pointerlockchange',()=>{
+  mouseActive=document.pointerLockElement===canvas;
+});
+document.addEventListener('mousemove',e=>{
+  if(mouseActive)player.angle+=e.movementX*0.003;
+});
+
+// Mobile
+let mobileKeys={fwd:false,bk:false,lt:false,rt:false};
+const mbfwd=document.getElementById('mb-fwd');
+const mbbk=document.getElementById('mb-bk');
+const mblt=document.getElementById('mb-lt');
+const mbrt=document.getElementById('mb-rt');
+function mheld(btn,key){
+  btn.addEventListener('touchstart',e=>{e.preventDefault();mobileKeys[key]=true;},{passive:false});
+  btn.addEventListener('touchend',e=>{e.preventDefault();mobileKeys[key]=false;},{passive:false});
+  btn.addEventListener('mousedown',()=>mobileKeys[key]=true);
+  btn.addEventListener('mouseup',()=>mobileKeys[key]=false);
+}
+mheld(mbfwd,'fwd');mheld(mbbk,'bk');mheld(mblt,'lt');mheld(mbrt,'rt');
+
+// ═══════════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════════
+let sanity=100, steps=0, roomsExplored=0;
+let gameOver=false, gameStarted=false;
+let hunterMoveCounter=0;
+let ambientTimer=0;
+
+function tryMove(dx,dy){
+  if(gameOver)return;
+  const nx=player.x+dx, ny=player.y+dy;
+  const margin=0.25;
+  let moved=false;
+  if(!isWall(nx+margin*Math.sign(dx),player.y)&&!isWall(nx-margin*Math.sign(dy===0?1:0),player.y)){
+    if(!isWall(nx,player.y+margin)&&!isWall(nx,player.y-margin)){
+      player.x=nx;moved=true;
+    }
+  }
+  if(!isWall(player.x,ny+margin*Math.sign(dy))&&!isWall(player.x,ny-margin*Math.sign(dx===0?1:0))){
+    if(!isWall(player.x+margin,ny)&&!isWall(player.x-margin,ny)){
+      player.y=ny;moved=true;
+    }
+  }
+  return moved;
+}
+
+// ═══════════════════════════════════════════════
+// GAME LOOP
+// ═══════════════════════════════════════════════
+let last=0;
+function loop(ts){
+  if(!gameStarted){requestAnimationFrame(loop);return;}
+  const dt=Math.min(0.05,(ts-last)/16.67);
+  last=ts;
+
+  if(!gameOver){
+    // ── Input ──
+    let moved=false;
+    if(keys['w']||keys['W']||keys['ArrowUp']||mobileKeys.fwd){
+      if(tryMove(Math.cos(player.angle)*player.speed,Math.sin(player.angle)*player.speed))moved=true;
+    }
+    if(keys['s']||keys['S']||keys['ArrowDown']||mobileKeys.bk){
+      if(tryMove(-Math.cos(player.angle)*player.speed*0.6,-Math.sin(player.angle)*player.speed*0.6))moved=true;
+    }
+    if(keys['a']||keys['A']||keys['ArrowLeft']||mobileKeys.lt){player.angle-=player.rotSpeed;}
+    if(keys['d']||keys['D']||keys['ArrowRight']||mobileKeys.rt){player.angle+=player.rotSpeed;}
+
+    if(moved){
+      steps++;
+      snd_step();
+      document.getElementById('hud-steps').textContent=steps;
+
+      // Hunter moves every step
+      hunterMoveCounter++;
+      if(hunterMoveCounter>=1){
+        hunterMoveCounter=0;
+        moveHunter();
+        moveHunter(); // moves twice per player step — relentless
+      }
+    }
+
+    // ── Proximity ──
+    const pd=dist2(player,hunter);
+    const prox=Math.max(0,Math.min(100,(1-pd/12)*100));
+    document.getElementById('prox-fill').style.width=prox+'%';
+
+    // Sanity
+    if(pd<5)sanity=Math.max(0,sanity-(5-pd)*0.04);
+    document.getElementById('sanity-fill').style.width=sanity+'%';
+    if(sanity<30)document.getElementById('sanity-fill').style.background='#cc2200';
+    else if(sanity<60)document.getElementById('sanity-fill').style.background='#cc7700';
+
+    // Flicker based on proximity and sanity
+    flickerAmt=pd<4?Math.max(0,(4-pd)/4*0.35):0;
+    if(sanity<25)flickerAmt+=0.15;
+
+    // Vignette
+    if(pd<6)setBlood(Math.max(0,(6-pd)/6*0.65));
+    else setBlood(0);
+
+    // HUD dist
+    const dEl=document.getElementById('hud-dist');
+    if(pd<2){dEl.textContent='RIGHT THERE';dEl.className='val danger';}
+    else if(pd<3.5){dEl.textContent='VERY CLOSE';dEl.className='val danger';}
+    else if(pd<5){dEl.textContent='CLOSE';dEl.className='val warn';}
+    else if(pd<8){dEl.textContent='NEARBY';dEl.className='val';}
+    else{dEl.textContent='DISTANT';dEl.className='val';}
+
+    // Ambient sounds
+    ambientTimer--;
+    if(ambientTimer<=0){
+      ambientTimer=80+Math.floor(Math.random()*80);
+      if(pd<5){snd_breath();if(pd<3)snd_heartbeat(pd<2);}
+      else if(pd<8){snd_drone(40+Math.random()*20,2,0.03);}
+    }
+
+    // Proximity sound effects
+    if(pd<2&&Math.random()<0.05){fx_static(150);snd_static(0.2,0.1);}
+    if(pd<1.5&&Math.random()<0.08){fx_shake(5,200);}
+    if(sanity<20&&Math.random()<0.02){fx_flash(30);}
+    if(hunterVisible&&pd<4&&Math.random()<0.04){fx_static(100);}
+
+    updateMessage(pd);
+    updateExplored();
+
+    // ── Check death ──
+    if(pd<0.8){triggerDeath();return;}
+
+    // ── Check exit ──
+    if(isExit(player.x,player.y)){triggerWin();return;}
+
+    // ── Render ──
+    castRays();
+    drawMinimap();
+
+    // Location name (rough)
+    const cx=Math.floor(player.x),cy=Math.floor(player.y);
+    const roomNames={
+      '1,13':'ENTRANCE','2,13':'PASSAGE','3,11':'CHAMBER',
+      '5,11':'DARK HALL','7,9':'CORRIDOR','9,9':'JUNCTION',
+      '11,9':'DEEP WING','13,7':'UPPER HALL','12,1':'EXIT AHEAD',
+      '5,7':'STORAGE','3,7':'CROSSING','1,5':'LOWER HALL',
+    };
+    document.getElementById('hud-room').textContent=roomNames[`${cx},${cy}`]||`SECTOR ${cx}-${cy}`;
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════
+// DEATH / WIN
+// ═══════════════════════════════════════════════
+function triggerDeath(){
+  gameOver=true;
+  snd_scream();
+  fx_flash(300);
+  setTimeout(()=>fx_black(500),300);
+  fx_shake(20,600);
+  setTimeout(()=>{
+    document.getElementById('d-steps').textContent=steps;
+    document.getElementById('d-rooms').textContent=explored.size;
+    document.getElementById('death-screen').style.display='flex';
+    document.title='IT FOUND YOU';
+  },1200);
+}
+function triggerWin(){
+  gameOver=true;
+  fx_flash(200);
+  setTimeout(()=>{
+    document.getElementById('w-steps').textContent=steps;
+    document.getElementById('w-rooms').textContent=explored.size;
+    document.getElementById('win-screen').style.display='flex';
+    document.title='you escaped';
+  },600);
+}
+
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+function startGame(){
+  ac(); // unlock audio
+  document.getElementById('intro-screen').style.display='none';
+  gameStarted=true;
+  resize();
+  snd_drone(40,4,0.06);
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize',resize);
+resize();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
